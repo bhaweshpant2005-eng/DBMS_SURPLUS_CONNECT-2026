@@ -3,233 +3,211 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Surplus Connect is a platform to donate and request surplus food, clothes, and essentials, helping NGOs and reducing waste in the community.">
-    <title>Surplus Connect - Bridging Resources, Building Communities</title>
+    <meta name="description" content="Surplus Connect - Intelligent resource distribution platform">
+    <title>Surplus Connect - Resource Matching Platform</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
-    <!-- Live Background -->
-    <div id="particles-js" class="live-background"></div>
-
-    <!-- Header -->
-    <header class="header">
-        <div class="container">
-            <div class="header-content">
-                <div class="logo">
-                    <i class="fas fa-hands-helping"></i>
-                    <h1>Surplus Connect</h1>
-                </div>
-                <nav class="nav">
-                    <button id="themeToggle" class="nav-btn theme-toggle">
-                        <i class="fas fa-moon"></i>
-                    </button>
-                    <button class="nav-btn active" data-section="home">
-                        <i class="fas fa-home"></i> Home
-                    </button>
-                    <button class="nav-btn donor-only" data-section="donor">
-                        <i class="fas fa-gift"></i> Donate
-                    </button>
-                    <button class="nav-btn ngo-only" data-section="receiver">
-                        <i class="fas fa-hand-holding-heart"></i> Request
-                    </button>
-                    <button class="nav-btn" data-section="statistics">
-                        <i class="fas fa-chart-bar"></i> Impact
-                    </button>
-                    <button class="nav-btn" data-section="reviews">
-                        <i class="fas fa-star"></i> Reviews
-                    </button>
-                    <button class="nav-btn admin-only" data-section="admin" style="display: none;">
-                        <i class="fas fa-user-shield"></i> Admin
-                    </button>
-                    <div class="user-actions">
-                        <button class="nav-btn notification-btn" id="notificationBtn" style="display: none;">
-                            <i class="fas fa-bell"></i>
-                            <span class="badge" id="notificationCount">0</span>
-                        </button>
-                        <button class="btn btn-primary" id="authBtn">Login</button>
-                    </div>
-                </nav>
-            </div>
-        </div>
-    </header>
-
-    <!-- Home Section -->
-    <section id="home" class="section active">
-        <div class="hero">
-            <div class="container">
-                <div class="hero-content">
-                    <h2>Bridging Resources, Building Communities</h2>
-                    <p>Connect surplus resources with those who need them most. Together, we can reduce waste and help communities thrive.</p>
-                    <div class="hero-stats">
-                        <div class="stat-item">
-                            <div class="stat-number">0</div>
-                            <div class="stat-label">Tons Waste Reduced</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-number">0</div>
-                            <div class="stat-label">People Helped</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-number">0</div>
-                            <div class="stat-label">Successful Matches</div>
-                        </div>
-                    </div>
-                    <div class="hero-actions">
-                        <button class="btn btn-primary" data-action="donate">
-                            <i class="fas fa-gift"></i> Start Donating
-                        </button>
-                        <button class="btn btn-secondary" data-action="request">
-                            <i class="fas fa-hand-holding-heart"></i> Request Items
-                        </button>
-                    </div>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="#" class="navbar-brand">
+                <i class="fas fa-leaf"></i>
+                <span>Surplus Connect</span>
+            </a>
+            <div class="navbar-menu">
+                <a href="#" data-section="dashboard" class="nav-link active">
+                    <i class="fas fa-home"></i> Dashboard
+                </a>
+                <a href="#" data-section="donate" class="nav-link donor-section" style="display: none;">
+                    <i class="fas fa-gift"></i> Donate
+                </a>
+                <a href="#" data-section="request" class="nav-link ngo-section" style="display: none;">
+                    <i class="fas fa-hand-holding-heart"></i> Request
+                </a>
+                <a href="#" data-section="matches" class="nav-link">
+                    <i class="fas fa-link"></i> Matches
+                </a>
+                <a href="#" data-section="admin" class="nav-link admin-section" style="display: none;">
+                    <i class="fas fa-gauge"></i> Admin
+                </a>
+                <div class="navbar-right">
+                    <span id="userInfo" class="user-info" style="display: none;">
+                        <span id="userName"></span> (<span id="userRole"></span>)
+                    </span>
+                    <button id="authBtn" class="btn btn-primary">Login</button>
                 </div>
             </div>
         </div>
+    </nav>
 
-        <div class="features">
-            <div class="container">
-                <h3>How Surplus Connect Works</h3>
-                <div class="features-grid">
-                    <div class="feature-card">
-                        <div class="feature-icon">
-                            <i class="fas fa-plus-circle"></i>
-                        </div>
-                        <h4>Register Surplus</h4>
-                        <p>Easily register your surplus food, clothes, or essentials with just a few clicks.</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">
-                            <i class="fas fa-search"></i>
-                        </div>
-                        <h4>Smart Matching</h4>
-                        <p>Our algorithm efficiently matches donations with requests based on location and urgency.</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">
-                            <i class="fas fa-truck"></i>
-                        </div>
-                        <h4>Track Impact</h4>
-                        <p>Monitor your contribution and see the real-world impact of your donations.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Donor Section -->
-<section id="donor" class="section">
-    <div class="container">
-
-        <div class="section-header">
-            <h2><i class="fas fa-gift"></i> Donate Surplus Items</h2>
-            <p>Register your surplus items to help those in need</p>
-            <button class="btn btn-secondary" style="margin-top:1rem;" onclick="surplusConnect.runMatchingNow()">
-                <i class="fas fa-sync"></i> Run Matching Now
-            </button>
-        </div>
-
-        <div class="content-grid">
-
-            <div class="form-container">
-                <form id="donationForm" action="/api/items" method="post" class="donation-form">
-
-                    <div class="form-group">
-                        <label>Your Name</label>
-                        <input type="text" id="donorName" name="name" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Phone Number</label>
-                        <input type="text" id="donorPhone" name="phone" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Item Type</label>
-                        <select id="itemType" name="foodType" required>
-                            <option value="">Select Type</option>
-                            <option value="Food">Food</option>
-                            <option value="Clothes">Clothes</option>
-                            <option value="Essentials">Essentials</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Category</label>
-                        <select id="category" name="category" required>
-                            <option value="">Select Category</option>
-                        </select>
-                    </div>
-
-                    <!-- Feature 22: Image Upload (Moved up) -->
-                    <div class="form-group">
-                        <label>Image (Optional)</label>
-                        <input type="file" id="itemImage" name="itemImage" accept="image/*">
-                        <small style="color: var(--text-light); display: block; margin-top: 5px;">Upload a photo of the item for visual verification.</small>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Quantity</label>
-                        <input type="text" id="quantity" name="quantity" required>
-                    </div>
-
-                    <div class="form-group" id="expiryGroup" style="display: none;">
-                        <label>Expiry Date</label>
-                        <input type="date" id="expiryDate" name="expiryDate">
-                    </div>
-
-                    <div class="form-group">
-                        <label>Location</label>
-                        <input type="text" id="location" name="location" placeholder="City or Area" required>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary btn-full">
-                        Register Donation
-                    </button>
-
-                </form>
-            </div>
-
-            <div class="donations-list">
-                <h3>Your Donations</h3>
-                <div id="donationsList" class="items-list">
-                    <!-- Donations will be populated here -->
-                </div>
-            </div>
-        </div>
-
-    </div>
-</section>
-    <!-- Receiver Section -->
-    <section id="receiver" class="section">
-        <div class="container">
+    <!-- Main Content -->
+    <main class="container">
+        <!-- Dashboard Section -->
+        <section id="dashboard" class="content-section active">
             <div class="section-header">
-                <h2><i class="fas fa-hand-holding-heart"></i> Request Items</h2>
-                <p>Request items that your NGO or organization needs</p>
+                <h1>Welcome to Surplus Connect</h1>
+                <p>Connect surplus resources with organizations that need them</p>
             </div>
 
-            <div class="content-grid">
-                <div class="form-container">
-                    <form id="requestForm" class="request-form">
+            <!-- Stats Grid -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-boxes"></i></div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="stat-donations">0</div>
+                        <div class="stat-label">Total Donations</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-people-carry"></i></div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="stat-requests">0</div>
+                        <div class="stat-label">Active Requests</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="stat-matches">0</div>
+                        <div class="stat-label">Successful Matches</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-landmark"></i></div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="stat-ngos">0</div>
+                        <div class="stat-label">Active NGOs</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="grid-2">
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-history"></i> Recent Donations</h2>
+                    </div>
+                    <div class="card-body" id="recentDonations">
+                        <p class="empty-state">No donations yet</p>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-list"></i> Active Requests</h2>
+                    </div>
+                    <div class="card-body" id="activeRequests">
+                        <p class="empty-state">No requests yet</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Donate Section -->
+        <section id="donate" class="content-section">
+            <div class="section-header">
+                <h1>Register a Donation</h1>
+                <p>Share surplus resources with organizations in need</p>
+            </div>
+
+            <div class="grid-2">
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-plus-circle"></i> New Donation</h2>
+                    </div>
+                    <form id="donationForm" class="card-body form">
                         <div class="form-group">
-                            <label for="ngoName">NGO/Organization Name</label>
-                            <input type="text" id="ngoName" required>
+                            <label for="donorName">Your Name</label>
+                            <input type="text" id="donorName" name="donorName" required placeholder="Enter your name">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="donorPhone">Phone Number</label>
+                            <input type="tel" id="donorPhone" name="donorPhone" required placeholder="Enter phone number">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="itemType">Item Type</label>
+                            <select id="itemType" name="itemType" required onchange="updateCategories('itemType', 'itemCategory')">
+                                <option value="">Select type</option>
+                                <option value="Food">Food</option>
+                                <option value="Clothes">Clothes</option>
+                                <option value="Essentials">Essentials</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="itemCategory">Category</label>
+                            <select id="itemCategory" name="itemCategory" required>
+                                <option value="">Select category</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="donationQuantity">Quantity</label>
+                            <input type="text" id="donationQuantity" name="quantity" required placeholder="e.g., 50 kg, 30 units">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="donationLocation">Location</label>
+                            <input type="text" id="donationLocation" name="location" required placeholder="City or area">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="donationDescription">Description</label>
+                            <textarea id="donationDescription" name="description" placeholder="Additional details about the donation" rows="3"></textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-full">
+                            <i class="fas fa-check"></i> Register Donation
+                        </button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-box"></i> Your Donations</h2>
+                    </div>
+                    <div class="card-body" id="myDonations">
+                        <p class="empty-state">No donations registered yet</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Request Section -->
+        <section id="request" class="content-section">
+            <div class="section-header">
+                <h1>Submit a Request</h1>
+                <p>Find resources your organization needs</p>
+            </div>
+
+            <div class="grid-2">
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-plus-circle"></i> New Request</h2>
+                    </div>
+                    <form id="requestForm" class="card-body form">
+                        <div class="form-group">
+                            <label for="ngoName">Organization Name</label>
+                            <input type="text" id="ngoName" name="organizationName" required placeholder="Organization name">
                         </div>
 
                         <div class="form-group">
                             <label for="contactPerson">Contact Person</label>
-                            <input type="text" id="contactPerson" required>
+                            <input type="text" id="contactPerson" name="contactPerson" required placeholder="Contact person name">
                         </div>
 
                         <div class="form-group">
-                            <label for="ngoPhone">Phone Number</label>
-                            <input type="tel" id="ngoPhone" required>
+                            <label for="contactPhone">Phone Number</label>
+                            <input type="tel" id="contactPhone" name="phone" required placeholder="Phone number">
                         </div>
 
                         <div class="form-group">
-                            <label for="requestItemType">Item Type</label>
-                            <select id="requestItemType" required>
-                                <option value="">Select Type</option>
+                            <label for="requestItemType">Item Type Needed</label>
+                            <select id="requestItemType" name="itemType" required onchange="updateCategories('requestItemType', 'requestCategory')">
+                                <option value="">Select type</option>
                                 <option value="Food">Food</option>
                                 <option value="Clothes">Clothes</option>
                                 <option value="Essentials">Essentials</option>
@@ -238,331 +216,188 @@
 
                         <div class="form-group">
                             <label for="requestCategory">Category</label>
-                            <select id="requestCategory" required>
-                                <option value="">Select Category</option>
+                            <select id="requestCategory" name="category" required>
+                                <option value="">Select category</option>
                             </select>
                         </div>
 
                         <div class="form-group">
                             <label for="requestQuantity">Quantity Needed</label>
-                            <input type="text" id="requestQuantity" placeholder="e.g., 40 portions, 25 jackets" required>
+                            <input type="text" id="requestQuantity" name="quantityRequested" required placeholder="e.g., 50 kg, 30 units">
                         </div>
 
                         <div class="form-group">
-                            <label for="urgency">Urgency Level</label>
-                            <select id="urgency" required>
-                                <option value="">Select Urgency</option>
-                                <option value="High">High - Urgent Need</option>
-                                <option value="Medium">Medium - Within a Week</option>
-                                <option value="Low">Low - Flexible Timeline</option>
+                            <label for="urgencyLevel">Urgency Level</label>
+                            <select id="urgencyLevel" name="urgencyLevel" required>
+                                <option value="">Select urgency</option>
+                                <option value="High">🔴 High - Urgent (This Week)</option>
+                                <option value="Medium">🟡 Medium - Within 2 Weeks</option>
+                                <option value="Low">🟢 Low - Flexible Timeline</option>
                             </select>
                         </div>
 
                         <div class="form-group">
                             <label for="requestLocation">Location</label>
-                            <input type="text" id="requestLocation" placeholder="City or Area" required>
+                            <input type="text" id="requestLocation" name="location" required placeholder="City or area">
                         </div>
 
                         <button type="submit" class="btn btn-primary btn-full">
-                            <i class="fas fa-plus"></i> Submit Request
+                            <i class="fas fa-check"></i> Submit Request
                         </button>
                     </form>
                 </div>
 
-                <div class="requests-list">
-                    <h3>Your Requests</h3>
-                    <div id="requestsList" class="items-list">
-                        <!-- Requests will be populated here -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-list"></i> Your Requests</h2>
                     </div>
-
-                    <div class="available-donations">
-                        <h3>Available Donations</h3>
-                        <div id="availableDonations" class="items-list">
-                            <!-- Available donations will be shown here -->
-                        </div>
+                    <div class="card-body" id="myRequests">
+                        <p class="empty-state">No requests submitted yet</p>
                     </div>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Statistics Section -->
-    <section id="statistics" class="section">
-        <div class="container">
+        <!-- Matches Section -->
+        <section id="matches" class="content-section">
             <div class="section-header">
-                <h2><i class="fas fa-chart-bar"></i> Community Impact</h2>
-                <p>See the positive impact we're making together</p>
+                <h1>Resource Matches</h1>
+                <p>View successful allocations and matches</p>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-link"></i> Active Matches</h2>
+                    <button class="btn btn-secondary" onclick="loadMatches()">
+                        <i class="fas fa-sync"></i> Refresh
+                    </button>
+                </div>
+                <div class="card-body" id="matchesList">
+                    <p class="empty-state">No matches found yet</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Admin Section -->
+        <section id="admin" class="content-section">
+            <div class="section-header">
+                <h1>Admin Dashboard</h1>
+                <p>System monitoring and administration</p>
             </div>
 
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-icon">
-                        <i class="fas fa-donate"></i>
-                    </div>
-                    <div class="stat-info">
-                        <div class="stat-number" id="totalDonations">0</div>
-                        <div class="stat-label">Total Donations</div>
+                    <div class="stat-icon"><i class="fas fa-boxes"></i></div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="admin-donations">0</div>
+                        <div class="stat-label">Total Items</div>
                     </div>
                 </div>
-
                 <div class="stat-card">
-                    <div class="stat-icon">
-                        <i class="fas fa-handshake"></i>
-                    </div>
-                    <div class="stat-info">
-                        <div class="stat-number" id="successfulMatches">0</div>
-                        <div class="stat-label">Successful Matches</div>
+                    <div class="stat-icon"><i class="fas fa-people-carry"></i></div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="admin-requests">0</div>
+                        <div class="stat-label">Total Requests</div>
                     </div>
                 </div>
-
                 <div class="stat-card">
-                    <div class="stat-icon">
-                        <i class="fas fa-users"></i>
-                    </div>
-                    <div class="stat-info">
-                        <div class="stat-number" id="activeNGOs">0</div>
-                        <div class="stat-label">Active NGOs</div>
+                    <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="admin-matches">0</div>
+                        <div class="stat-label">Total Matches</div>
                     </div>
                 </div>
-
                 <div class="stat-card">
-                    <div class="stat-icon">
-                        <i class="fas fa-recycle"></i>
-                    </div>
-                    <div class="stat-info">
-                        <div class="stat-number" id="wastageReduced">0T</div>
-                        <div class="stat-label">Waste Reduced</div>
-                    </div>
-                </div>
-
-                <div class="stat-card">
-                    <div class="stat-icon">
-                        <i class="fas fa-heart"></i>
-                    </div>
-                    <div class="stat-info">
-                        <div class="stat-number" id="peopleHelped">0</div>
-                        <div class="stat-label">People Helped</div>
-                    </div>
-                </div>
-
-                <div class="stat-card">
-                    <div class="stat-icon">
-                        <i class="fas fa-clock"></i>
-                    </div>
-                    <div class="stat-info">
-                        <div class="stat-number">24hr</div>
-                        <div class="stat-label">Avg Match Time</div>
+                    <div class="stat-icon"><i class="fas fa-landmark"></i></div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="admin-ngos">0</div>
+                        <div class="stat-label">NGOs</div>
                     </div>
                 </div>
             </div>
 
-            <div class="charts-section">
-                <div class="chart-container">
-                    <h3>Donation Categories Distribution</h3>
-                    <div class="category-chart">
-                        <div class="category-bar">
-                            <div class="category-item">
-                                <span class="category-label">Food</span>
-                                <div class="category-progress">
-                                    <div class="progress-bar" style="width: 0%;" data-category="Food"></div>
-                                </div>
-                                <span class="category-value">0%</span>
-                            </div>
-                            <div class="category-item">
-                                <span class="category-label">Clothes</span>
-                                <div class="category-progress">
-                                    <div class="progress-bar" style="width: 0%;" data-category="Clothes"></div>
-                                </div>
-                                <span class="category-value">0%</span>
-                            </div>
-                            <div class="category-item">
-                                <span class="category-label">Essentials</span>
-                                <div class="category-progress">
-                                    <div class="progress-bar" style="width: 0%;" data-category="Essentials"></div>
-                                </div>
-                                <span class="category-value">0%</span>
-                            </div>
-                        </div>
+            <div class="grid-2">
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-sync"></i> System Controls</h2>
                     </div>
-                </div>
-
-                <div class="recent-matches">
-                    <h3>Recent Successful Matches</h3>
-                    <div id="recentMatches" class="matches-list">
-                        <!-- Recent matches will be populated here -->
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Reviews Section (Feature 21) -->
-    <section id="reviews" class="section">
-        <div class="container">
-            <div class="section-header">
-                <h2><i class="fas fa-star"></i> Reviews & Ratings</h2>
-                <p>Rate your experience with donors and NGOs</p>
-            </div>
-
-            <div class="content-grid">
-                <div class="form-container">
-                    <h3>Your Completed Transactions</h3>
-                    <p style="color: var(--text-light); margin-bottom: 1.5rem;">Select a transaction below to leave a review</p>
-                    <div id="completedAllocations" class="items-list">
-                        <p style="text-align: center; color: var(--text-light); padding: 2rem;">Loading your transactions...</p>
-                    </div>
-                </div>
-
-                <div class="reviews-list-container">
-                    <h3>Lookup Reviews</h3>
-                    <div class="form-group" style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
-                        <div>
-                            <label for="lookupTargetId">Target ID</label>
-                            <input type="number" id="lookupTargetId" placeholder="e.g., 1" style="width:100px;">
-                        </div>
-                        <div>
-                            <label for="lookupTargetType">Type</label>
-                            <select id="lookupTargetType">
-                                <option value="NGO">NGO</option>
-                                <option value="DONOR">Donor</option>
-                            </select>
-                        </div>
-                        <button class="btn btn-secondary" id="lookupReviewsBtn">
-                            <i class="fas fa-search"></i> Search
+                    <div class="card-body">
+                        <button class="btn btn-secondary btn-full" onclick="runMatching()">
+                            <i class="fas fa-sync"></i> Run Matching Algorithm
+                        </button>
+                        <button class="btn btn-secondary btn-full" onclick="generateData()" style="margin-top: 10px;">
+                            <i class="fas fa-database"></i> Generate Test Data
                         </button>
                     </div>
+                </div>
 
-                    <div id="reviewStats" class="review-stats-card" style="display:none;">
-                        <!-- Stats populated by JS -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-trophy"></i> Top NGOs</h2>
                     </div>
-
-                    <div id="reviewsList" class="items-list">
-                        <p style="text-align: center; color: var(--text-light); padding: 2rem;">Search for an NGO or Donor to see their reviews.</p>
+                    <div class="card-body" id="topNGOs">
+                        <p class="empty-state">Loading...</p>
                     </div>
                 </div>
             </div>
-        </div>
-    </section>
-
-    <!-- Review Modal -->
-    <div id="reviewModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <i class="fas fa-star"></i>
-                <h3>Submit Review</h3>
-                <button class="close-btn" id="closeReviewModal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="reviewForm" class="review-form">
-                    <input type="hidden" id="reviewAllocationId">
-                    <input type="hidden" id="reviewDonationId">
-                    <input type="hidden" id="reviewTargetId">
-                    <input type="hidden" id="reviewTargetType">
-
-                    <div class="form-group">
-                        <label>Transaction Details</label>
-                        <div id="reviewTransactionInfo" style="background: var(--surface); padding: 1rem; border-radius: 8px; margin-bottom: 1rem; color: var(--text-light);">
-                            <!-- Populated by JS -->
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="reviewerName">Your Name</label>
-                        <input type="text" id="reviewerName" required>
-                    </div>
-
-                    <input type="hidden" id="reviewerType">
-
-                    <div class="form-group">
-                        <label>Rating</label>
-                        <div class="star-rating" id="starRating">
-                            <i class="fas fa-star" data-rating="1"></i>
-                            <i class="fas fa-star" data-rating="2"></i>
-                            <i class="fas fa-star" data-rating="3"></i>
-                            <i class="fas fa-star" data-rating="4"></i>
-                            <i class="fas fa-star" data-rating="5"></i>
-                        </div>
-                        <input type="hidden" id="reviewRating" value="0">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="reviewComment">Comment (Optional)</label>
-                        <textarea id="reviewComment" rows="3" placeholder="Share your experience..."></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Proof / Feedback Image (Optional)</label>
-                        <input type="file" id="reviewImage" accept="image/*">
-                    </div>
-
-                    <button type="submit" class="btn btn-primary btn-full">
-                        <i class="fas fa-paper-plane"></i> Submit Review
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Success Modal -->
-    <div id="successModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <i id="modalIcon" class="fas fa-check-circle"></i>
-                <h3 id="modalTitle">Success!</h3>
-            </div>
-            <div class="modal-body">
-                <p id="modalMessage">Your action was completed successfully.</p>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-primary" id="modalClose">Continue</button>
-            </div>
-        </div>
-    </div>
+        </section>
+    </main>
 
     <!-- Auth Modal -->
     <div id="authModal" class="modal">
         <div class="modal-content">
+            <button class="modal-close">&times;</button>
             <div class="modal-header">
-                <i class="fas fa-user-circle"></i>
-                <h3 id="authModalTitle">Login</h3>
-                <button class="close-btn" id="closeAuthModal">&times;</button>
+                <h2>Authentication</h2>
             </div>
-            <div class="modal-body">
-                <div class="auth-tabs">
-                    <button class="auth-tab active" data-tab="login">Login</button>
-                    <button class="auth-tab" data-tab="register">Register</button>
-                </div>
-                
-                <form id="loginForm" class="auth-form active">
+
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="login">Login</button>
+                <button class="tab-btn" data-tab="register">Register</button>
+            </div>
+
+            <!-- Login Form -->
+            <div id="login" class="tab-content active">
+                <form id="loginForm" class="form">
                     <div class="form-group">
-                        <label><i class="fas fa-user"></i> Username</label>
-                        <input type="text" id="loginUsername" placeholder="Enter your username" required>
+                        <label for="loginEmail">Email</label>
+                        <input type="email" id="loginEmail" required placeholder="Enter email">
                     </div>
                     <div class="form-group">
-                        <label><i class="fas fa-lock"></i> Password</label>
-                        <input type="password" id="loginPassword" placeholder="Enter your password" required>
+                        <label for="loginPassword">Password</label>
+                        <input type="password" id="loginPassword" required placeholder="Enter password">
+                    </div>
+                    <div class="form-group">
+                        <label for="loginRole">Role</label>
+                        <select id="loginRole" required>
+                            <option value="DONOR">Donor</option>
+                            <option value="NGO">NGO</option>
+                        </select>
                     </div>
                     <button type="submit" class="btn btn-primary btn-full">Login</button>
                 </form>
+            </div>
 
-                <form id="registerForm" class="auth-form" style="display: none;">
+            <!-- Register Form -->
+            <div id="register" class="tab-content">
+                <form id="registerForm" class="form">
                     <div class="form-group">
-                        <label><i class="fas fa-user"></i> Username</label>
-                        <input type="text" id="regUsername" placeholder="Choose a username" required>
+                        <label for="regName">Full Name</label>
+                        <input type="text" id="regName" required placeholder="Enter full name">
                     </div>
                     <div class="form-group">
-                        <label><i class="fas fa-envelope"></i> Email</label>
-                        <input type="email" id="regEmail" placeholder="Enter your email" required>
+                        <label for="regEmail">Email</label>
+                        <input type="email" id="regEmail" required placeholder="Enter email">
                     </div>
                     <div class="form-group">
-                        <label><i class="fas fa-lock"></i> Password</label>
-                        <input type="password" id="regPassword" placeholder="Create a password" required>
+                        <label for="regPassword">Password</label>
+                        <input type="password" id="regPassword" required placeholder="Enter password">
                     </div>
                     <div class="form-group">
-                        <label><i class="fas fa-users-cog"></i> Role</label>
+                        <label for="regRole">Role</label>
                         <select id="regRole" required>
-                            <option value="DONOR">Donor (I want to help)</option>
-                            <option value="NGO">NGO (I need resources)</option>
+                            <option value="DONOR">Donor</option>
+                            <option value="NGO">NGO</option>
                         </select>
                     </div>
                     <button type="submit" class="btn btn-primary btn-full">Register</button>
@@ -571,63 +406,9 @@
         </div>
     </div>
 
-    <!-- Notifications Modal -->
-    <div id="notificationsModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <i class="fas fa-bell"></i>
-                <h3>Notifications</h3>
-                <button class="close-btn" id="closeNotifModal">&times;</button>
-            </div>
-            <div class="modal-body" id="notificationsList">
-                <p>No new notifications</p>
-            </div>
-        </div>
-    </div>
-    <!-- Admin Dashboard Section -->
-    <section id="admin" class="section">
-        <div class="container">
-            <div class="section-header">
-                <h2><i class="fas fa-user-shield"></i> Admin Dashboard</h2>
-                <p>System analytics and NGO leaderboard</p>
-            </div>
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
 
-            <div class="content-grid">
-                <div class="analytics-card">
-                    <h3>System Analytics</h3>
-                    <div class="stats-grid" style="margin-top: 20px;">
-                        <div class="stat-card">
-                            <div class="stat-info">
-                                <div class="stat-number" id="adminTotalDonations">0</div>
-                                <div class="stat-label">Total Donations</div>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-info">
-                                <div class="stat-number" id="adminTotalRequests">0</div>
-                                <div class="stat-label">Total Requests</div>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-info">
-                                <div class="stat-number" id="adminSuccessfulMatches">0</div>
-                                <div class="stat-label">Successful Matches</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="leaderboard-card">
-                    <h3>NGO Leaderboard</h3>
-                    <div id="ngoLeaderboard" class="items-list">
-                        <!-- Leaderboard populated by JS -->
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
-    <script src="app.js?v=8.0"></script>
+    <script src="app.js"></script>
 </body>
 </html>

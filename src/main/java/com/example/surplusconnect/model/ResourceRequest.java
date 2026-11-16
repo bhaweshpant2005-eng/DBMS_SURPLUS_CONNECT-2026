@@ -32,7 +32,7 @@ public class ResourceRequest {
     private UrgencyLevel urgencyLevel = UrgencyLevel.NORMAL;
 
     // --- Feature 3: Dynamic Re-Prioritization ---
-    @Column(columnDefinition = "DOUBLE DEFAULT 0.0")
+    @Column(columnDefinition = "DOUBLE PRECISION DEFAULT 0.0")
     private Double priorityScore = 0.0;
     private LocalDateTime createdAt;
     private LocalDateTime lastUpdated;

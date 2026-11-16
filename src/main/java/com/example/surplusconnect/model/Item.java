@@ -33,10 +33,10 @@ public class Item {
     private Integer remainingQuantityNum;
 
     // --- Feature 12: Geographic Clustering ---
-    @Column(columnDefinition = "DOUBLE DEFAULT 0.0")
+    @Column(columnDefinition = "DOUBLE PRECISION DEFAULT 0.0")
     private Double latitude = 0.0;
 
-    @Column(columnDefinition = "DOUBLE DEFAULT 0.0")
+    @Column(columnDefinition = "DOUBLE PRECISION DEFAULT 0.0")
     private Double longitude = 0.0;
 
     // --- Feature 16: Resource Lifecycle FSM ---
