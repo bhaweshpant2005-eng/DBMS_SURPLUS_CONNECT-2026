@@ -1,653 +1,1509 @@
-// ========================================
-// Surplus Connect - Frontend Application
-// ========================================
+// Surplus Connect - JavaScript Application Logic
 
+// Data Structures and Storage
 class SurplusConnect {
     constructor() {
-        this.token = localStorage.getItem('authToken');
-        this.currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
-        this.baseURL = window.location.origin + '/api';
-        
-        // Category mappings
+        console.log("SurplusConnect App Version 2.0 Loaded");
+        this.sections = ['home', 'donor', 'receiver', 'impact', 'reviews', 'admin'];
+        // Initialize data structures
+        this.donations = new Map(); // Hash map for quick lookups
+        this.requests = new Map();
+        this.matches = [];
+        this.statistics = {
+            totalDonations: 0,
+            successfulMatches: 0,
+            activeNGOs: 0,
+            wastageReduced: "0 tons",
+            peopleHelped: 0
+        };
+
+        // Categories mapping
         this.categories = {
             "Food": ["Cooked Meals", "Fresh Vegetables", "Packaged Food", "Dairy Products"],
             "Clothes": ["Winter Wear", "Summer Clothes", "Formal Wear", "Children Clothes"],
             "Essentials": ["Medicine", "Books", "Electronics", "Household Items"]
         };
 
-        this.init();
+        // Priority queue for urgent requests
+        this.urgentRequests = [];
+
+        // Wait for DOM to be ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                this.initializeUI();
+                this.bindEvents();
+                this.initCursorEffect();
+                this.initTheme();
+                setTimeout(() => this.initParticles(), 100);
+            });
+        } else {
+            this.initializeUI();
+            this.bindEvents();
+            this.initCursorEffect();
+            this.initTheme();
+            setTimeout(() => this.initParticles(), 100);
+        }
     }
 
-    init() {
-        this.setupEventListeners();
-        this.updateUIForAuth();
-        this.loadDashboard();
+    // Initialize UI components
+    initializeUI() {
+        this.updateCategoryOptions();
+        this.updateStatistics();
+        this.updateUIForAuth(); // Check auth state on load
+        // Load real data from backend
+        this.fetchDonationsFromBackend();
+        this.fetchRequestsFromBackend();
     }
 
-    setupEventListeners() {
+    // Fetch donations from backend and populate local map
+    fetchDonationsFromBackend() {
+        fetch('/api/items')
+            .then(res => res.ok ? res.json() : [])
+            .then(items => {
+                this.donations.clear();
+                items.forEach(item => this.donations.set(item.id, item));
+                this.renderDonations();
+                this.renderAvailableDonations();
+                this.updateStatistics();
+            })
+            .catch(err => console.error('Failed to load donations:', err));
+    }
+
+    // Fetch requests from backend and populate local map
+    fetchRequestsFromBackend() {
+        fetch('/api/requests')
+            .then(res => res.ok ? res.json() : [])
+            .then(requests => {
+                this.requests.clear();
+                requests.forEach(req => this.requests.set(req.id, req));
+                this.renderRequests();
+                this.renderRecentMatches();
+            })
+            .catch(err => console.error('Failed to load requests:', err));
+    }
+
+    // Bind event listeners
+    bindEvents() {
         // Navigation
-        document.querySelectorAll('[data-section]').forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const section = link.dataset.section;
+        const navBtns = document.querySelectorAll('.nav-btn');
+        navBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const section = e.target.dataset.section;
                 this.showSection(section);
             });
         });
 
-        // Auth Modal
-        const authBtn = document.getElementById('authBtn');
-        const authModal = document.getElementById('authModal');
-        const modalClose = document.querySelector('.modal-close');
+        // Hero action buttons
+        const donateBtn = document.querySelector('[data-action="donate"]');
+        const requestBtn = document.querySelector('[data-action="request"]');
 
-        authBtn.addEventListener('click', () => authModal.classList.add('active'));
-        modalClose.addEventListener('click', () => authModal.classList.remove('active'));
-        authModal.addEventListener('click', (e) => {
-            if (e.target === authModal) authModal.classList.remove('active');
-        });
+        if (donateBtn) {
+            donateBtn.addEventListener('click', () => {
+                if (localStorage.getItem('token')) {
+                    this.showSection('donor');
+                } else {
+                    document.getElementById('authModal').classList.add('active');
+                    document.getElementById('authModalTitle').textContent = 'Please Login to Donate';
+                }
+            });
+        }
 
-        // Tab switching
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const tab = btn.dataset.tab;
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                btn.classList.add('active');
-                document.getElementById(tab).classList.add('active');
+        if (requestBtn) {
+            requestBtn.addEventListener('click', () => {
+                if (localStorage.getItem('token')) {
+                    this.showSection('receiver');
+                } else {
+                    document.getElementById('authModal').classList.add('active');
+                    document.getElementById('authModalTitle').textContent = 'Please Login to Request';
+                }
+            });
+        }
+
+        // Form submissions
+        const donationForm = document.getElementById('donationForm');
+        const requestForm = document.getElementById('requestForm');
+
+        if (donationForm) {
+            donationForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleDonationSubmit(e);
+            });
+        }
+
+        if (requestForm) {
+            requestForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleRequestSubmit(e);
+            });
+        }
+
+        // Item type change handlers
+        const itemTypeSelect = document.getElementById('itemType');
+        const requestItemTypeSelect = document.getElementById('requestItemType');
+
+        if (itemTypeSelect) {
+            itemTypeSelect.addEventListener('change', (e) => {
+                this.updateCategorySelect('category', e.target.value);
+                this.toggleExpiryField(e.target.value);
+            });
+        }
+
+        if (requestItemTypeSelect) {
+            requestItemTypeSelect.addEventListener('change', (e) => {
+                this.updateCategorySelect('requestCategory', e.target.value);
+            });
+        }
+
+        // Modal close
+        const modalClose = document.getElementById('modalClose');
+        if (modalClose) {
+            modalClose.addEventListener('click', () => {
+                this.hideModal();
+                const title = document.getElementById('modalTitle').textContent;
+                if (title === 'Authorization Needed' || title === 'Session Expired') {
+                    this.logout();
+                }
+            });
+        }
+
+        // ✨ ENHANCED Star rating UI with glow effects
+        const stars = document.querySelectorAll('.star-rating i');
+        stars.forEach(star => {
+            star.addEventListener('mouseover', () => {
+                const rating = parseInt(star.dataset.rating);
+                this.highlightStars(rating);
+            });
+            star.addEventListener('mouseout', () => {
+                this.highlightStars(this.currentRating || 0);
+            });
+            star.addEventListener('click', () => {
+                this.currentRating = parseInt(star.dataset.rating);
+                document.getElementById('reviewRating').value = this.currentRating;
+                this.highlightStars(this.currentRating);
+                
+                // ✨ Trigger glow animation on click
+                star.classList.remove('active');
+                void star.offsetWidth; // Force reflow
+                star.classList.add('active');
+                
+                // Show success feedback
+                this.showNotificationFeedback(`Rating set to ${this.currentRating} stars!`, 'success');
             });
         });
 
-        // Forms
-        document.getElementById('loginForm')?.addEventListener('submit', (e) => this.handleLogin(e));
-        document.getElementById('registerForm')?.addEventListener('submit', (e) => this.handleRegister(e));
-        document.getElementById('donationForm')?.addEventListener('submit', (e) => this.handleDonation(e));
-        document.getElementById('requestForm')?.addEventListener('submit', (e) => this.handleRequest(e));
-
-        // Category dropdowns
-        document.getElementById('itemType')?.addEventListener('change', () => {
-            this.updateCategories('itemType', 'itemCategory');
-        });
-        document.getElementById('requestItemType')?.addEventListener('change', () => {
-            this.updateCategories('requestItemType', 'requestCategory');
-        });
-    }
-
-    updateUIForAuth() {
-        const userInfo = document.getElementById('userInfo');
-        const authBtn = document.getElementById('authBtn');
-        const userName = document.getElementById('userName');
-        const userRole = document.getElementById('userRole');
-
-        if (this.currentUser && this.token) {
-            authBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i> Logout';
-            authBtn.onclick = () => this.logout();
-            userInfo.style.display = 'block';
-            userName.textContent = this.currentUser.name || 'User';
-            userRole.textContent = this.currentUser.role || 'Unknown';
-
-            // Show role-specific sections
-            this.showRoleBasedSections(this.currentUser.role);
-        } else {
-            authBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
-            authBtn.onclick = () => document.getElementById('authModal').classList.add('active');
-            userInfo.style.display = 'none';
-            this.hideRoleBasedSections();
+        // Lookup reviews button
+        const lookupBtn = document.getElementById('lookupReviewsBtn');
+        if (lookupBtn) {
+            lookupBtn.addEventListener('click', () => this.lookupReviews());
         }
-    }
 
-    showRoleBasedSections(role) {
-        const donorSections = document.querySelectorAll('.donor-section');
-        const ngoSections = document.querySelectorAll('.ngo-section');
-        const adminSections = document.querySelectorAll('.admin-section');
+        // Review modal close
+        const closeReviewModal = document.getElementById('closeReviewModal');
+        if (closeReviewModal) {
+            closeReviewModal.addEventListener('click', () => {
+                document.getElementById('reviewModal').classList.remove('active');
+            });
+        }
 
-        donorSections.forEach(el => el.style.display = role === 'DONOR' ? 'inline-flex' : 'none');
-        ngoSections.forEach(el => el.style.display = role === 'NGO' ? 'inline-flex' : 'none');
-        adminSections.forEach(el => el.style.display = role === 'ADMIN' ? 'inline-flex' : 'none');
-    }
+        // Review form submit
+        const reviewForm = document.getElementById('reviewForm');
+        if (reviewForm) {
+            reviewForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleReviewSubmit(e);
+            });
+        }
 
-    hideRoleBasedSections() {
-        document.querySelectorAll('.donor-section, .ngo-section, .admin-section').forEach(el => {
-            el.style.display = 'none';
+        // --- NEW FEATURES EVENT BINDINGS ---
+
+        // Auth Modal Toggles
+        const authBtn = document.getElementById('authBtn');
+        const closeAuthModal = document.getElementById('closeAuthModal');
+        if (authBtn) {
+            authBtn.addEventListener('click', () => {
+                if(localStorage.getItem('token')) {
+                    this.logout();
+                } else {
+                    document.getElementById('authModalTitle').textContent = 'Login';
+                    document.getElementById('authModal').classList.add('active');
+                }
+            });
+        }
+        if (closeAuthModal) closeAuthModal.addEventListener('click', () => document.getElementById('authModal').classList.remove('active'));
+
+        // Auth Tabs
+        const authTabs = document.querySelectorAll('.auth-tab');
+        authTabs.forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                authTabs.forEach(t => t.classList.remove('active'));
+                e.target.classList.add('active');
+                const forms = document.querySelectorAll('.auth-form');
+                forms.forEach(f => f.style.display = 'none');
+                document.getElementById(e.target.dataset.tab + 'Form').style.display = 'block';
+            });
         });
+
+        // Login Submit
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) {
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleLogin();
+            });
+        }
+
+        // Register Submit
+        const registerForm = document.getElementById('registerForm');
+        if (registerForm) {
+            registerForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleRegister();
+            });
+        }
+
+        // Notifications Modal Toggle
+        const notificationBtn = document.getElementById('notificationBtn');
+        const closeNotifModal = document.getElementById('closeNotifModal');
+        if (notificationBtn) {
+            notificationBtn.addEventListener('click', () => {
+                document.getElementById('notificationsModal').classList.add('active');
+                this.fetchNotifications();
+            });
+        }
+        if (closeNotifModal) closeNotifModal.addEventListener('click', () => document.getElementById('notificationsModal').classList.remove('active'));
+
     }
 
-    showSection(sectionId) {
-        // Hide all sections
-        document.querySelectorAll('.content-section').forEach(section => {
+    // Show specific section
+    showSection(sectionName) {
+        // Update navigation
+        const navBtns = document.querySelectorAll('.nav-btn');
+        navBtns.forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.section === sectionName) {
+                btn.classList.add('active');
+            }
+        });
+
+        // Update sections
+        const sections = document.querySelectorAll('.section');
+        sections.forEach(section => {
             section.classList.remove('active');
         });
 
-        // Show selected section
-        const section = document.getElementById(sectionId);
-        if (section) {
-            section.classList.add('active');
-
-            // Update nav links
-            document.querySelectorAll('[data-section]').forEach(link => {
-                link.classList.remove('active');
-                if (link.dataset.section === sectionId) link.classList.add('active');
-            });
-
-            // Load section data
-            if (sectionId === 'dashboard') this.loadDashboard();
-            else if (sectionId === 'donate') this.loadMyDonations();
-            else if (sectionId === 'request') this.loadMyRequests();
-            else if (sectionId === 'matches') this.loadMatches();
-            else if (sectionId === 'admin') this.loadAdminDashboard();
-        }
-    }
-
-    // ========================================
-    // API Calls
-    // ========================================
-
-    async apiCall(method, endpoint, data = null) {
-        const options = {
-            method,
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        };
-
-        if (this.token) {
-            options.headers['Authorization'] = `Bearer ${this.token}`;
-        }
-
-        if (data) {
-            options.body = JSON.stringify(data);
-        }
-
-        try {
-            const response = await fetch(`${this.baseURL}${endpoint}`, options);
+        const activeSection = document.getElementById(sectionName);
+        if (activeSection) {
+            activeSection.classList.add('active');
+            activeSection.classList.add('fade-in');
             
-            if (response.status === 401) {
-                this.logout();
-                throw new Error('Unauthorized - please login');
+            // If admin section is loaded, fetch admin data
+            if(sectionName === 'admin') {
+                this.loadAdminDashboard();
             }
-
-            if (!response.ok) {
-                const error = await response.text();
-                throw new Error(error || `HTTP ${response.status}`);
+            // If reviews section, load completed allocations
+            if(sectionName === 'reviews') {
+                this.loadCompletedAllocations();
             }
-
-            return await response.json();
-        } catch (error) {
-            console.error(`API Error [${method} ${endpoint}]:`, error);
-            this.showToast(error.message, 'error');
-            throw error;
+            // If impact/statistics section, load real stats
+            if(sectionName === 'statistics') {
+                this.loadImpactStats();
+            }
         }
     }
 
-    // ========================================
-    // Authentication
-    // ========================================
+    // Update category options based on item type
+    updateCategoryOptions() {
+        const categorySelect = document.getElementById('category');
+        const requestCategorySelect = document.getElementById('requestCategory');
 
-    async handleLogin(e) {
-        e.preventDefault();
-        const email = document.getElementById('loginEmail').value;
-        const password = document.getElementById('loginPassword').value;
-        const role = document.getElementById('loginRole').value;
+        if (categorySelect) categorySelect.innerHTML = '<option value="">Select Category</option>';
+        if (requestCategorySelect) requestCategorySelect.innerHTML = '<option value="">Select Category</option>';
+    }
 
-        try {
-            const response = await this.apiCall('POST', '/auth/login', {
-                email,
-                password,
-                role
+    updateCategorySelect(selectId, itemType) {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+
+        select.innerHTML = '<option value="">Select Category</option>';
+
+        if (itemType && this.categories[itemType]) {
+            this.categories[itemType].forEach(category => {
+                const option = document.createElement('option');
+                option.value = category;
+                option.textContent = category;
+                select.appendChild(option);
             });
-
-            this.token = response.token;
-            this.currentUser = response.user;
-
-            localStorage.setItem('authToken', this.token);
-            localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
-
-            document.getElementById('authModal').classList.remove('active');
-            document.getElementById('loginForm').reset();
-            
-            this.updateUIForAuth();
-            this.showToast('Login successful!', 'success');
-            this.showSection('dashboard');
-        } catch (error) {
-            this.showToast('Login failed: ' + error.message, 'error');
         }
     }
 
-    async handleRegister(e) {
-        e.preventDefault();
-        const name = document.getElementById('regName').value;
-        const email = document.getElementById('regEmail').value;
-        const password = document.getElementById('regPassword').value;
-        const role = document.getElementById('regRole').value;
+    // Toggle expiry field for food items
+    toggleExpiryField(itemType) {
+        const expiryGroup = document.getElementById('expiryGroup');
+        if (!expiryGroup) return;
 
-        try {
-            await this.apiCall('POST', '/auth/register', {
-                name,
-                email,
-                password,
-                role
-            });
-
-            document.getElementById('registerForm').reset();
-            this.showToast('Registration successful! Please login.', 'success');
-            
-            // Switch to login tab
-            document.querySelector('[data-tab="login"]').click();
-        } catch (error) {
-            this.showToast('Registration failed: ' + error.message, 'error');
+        if (itemType === 'Food') {
+            expiryGroup.style.display = 'block';
+            document.getElementById('expiryDate').required = true;
+        } else {
+            expiryGroup.style.display = 'none';
+            document.getElementById('expiryDate').required = false;
         }
     }
 
-    logout() {
-        this.token = null;
-        this.currentUser = null;
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('currentUser');
-        this.updateUIForAuth();
-        this.showSection('dashboard');
-        this.showToast('Logged out successfully', 'success');
-    }
-
-    // ========================================
-    // Dashboard
-    // ========================================
-
-    async loadDashboard() {
-        try {
-            // Load stats
-            const [items, requests, ngos] = await Promise.all([
-                this.apiCall('GET', '/items'),
-                this.apiCall('GET', '/requests'),
-                this.apiCall('GET', '/ngos')
-            ]);
-
-            // Update stats
-            document.getElementById('stat-donations').textContent = items.length;
-            document.getElementById('stat-requests').textContent = requests.length;
-            document.getElementById('stat-matches').textContent = items.filter(i => i.status === 'ALLOCATED').length;
-            document.getElementById('stat-ngos').textContent = ngos.length;
-
-            // Show recent items
-            this.renderRecentItems(items.slice(0, 5));
-
-            // Show active requests
-            this.renderActiveRequests(requests.slice(0, 5));
-        } catch (error) {
-            console.error('Failed to load dashboard:', error);
-        }
-    }
-
-    renderRecentItems(items) {
-        const container = document.getElementById('recentDonations');
-        if (items.length === 0) {
-            container.innerHTML = '<p class="empty-state">No donations yet</p>';
-            return;
-        }
-
-        container.innerHTML = `
-            <div class="item-list">
-                ${items.map(item => `
-                    <div class="item">
-                        <div class="item-header">
-                            <span class="item-title">${item.itemType} - ${item.category}</span>
-                            <span class="item-badge ${item.status?.toLowerCase()}">${item.status || 'PENDING'}</span>
-                        </div>
-                        <div class="item-body">
-                            <div class="item-field">
-                                <span class="item-field-label">Quantity</span>
-                                <span class="item-field-value">${item.quantity}</span>
-                            </div>
-                            <div class="item-field">
-                                <span class="item-field-label">Location</span>
-                                <span class="item-field-value">${item.location || 'N/A'}</span>
-                            </div>
-                            <div class="item-field">
-                                <span class="item-field-label">Created</span>
-                                <span class="item-field-value">${new Date(item.createdAt).toLocaleDateString()}</span>
-                            </div>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    }
-
-    renderActiveRequests(requests) {
-        const container = document.getElementById('activeRequests');
-        if (requests.length === 0) {
-            container.innerHTML = '<p class="empty-state">No active requests</p>';
-            return;
-        }
-
-        container.innerHTML = `
-            <div class="item-list">
-                ${requests.map(req => `
-                    <div class="item">
-                        <div class="item-header">
-                            <span class="item-title">${req.resourceType} - ${req.category}</span>
-                            <span class="item-badge ${req.urgencyLevel?.toLowerCase()}">${req.urgencyLevel || 'PENDING'}</span>
-                        </div>
-                        <div class="item-body">
-                            <div class="item-field">
-                                <span class="item-field-label">Quantity Needed</span>
-                                <span class="item-field-value">${req.quantityRequested}</span>
-                            </div>
-                            <div class="item-field">
-                                <span class="item-field-label">Location</span>
-                                <span class="item-field-value">${req.location || 'N/A'}</span>
-                            </div>
-                            <div class="item-field">
-                                <span class="item-field-label">Status</span>
-                                <span class="item-field-value">${req.status || 'PENDING'}</span>
-                            </div>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    }
-
-    // ========================================
-    // Donations
-    // ========================================
-
-    async handleDonation(e) {
-        e.preventDefault();
-
-        const formData = {
+    // Handle donation form submission
+    handleDonationSubmit(e) {
+        
+        const donation = {
             donorName: document.getElementById('donorName').value,
             donorPhone: document.getElementById('donorPhone').value,
             itemType: document.getElementById('itemType').value,
-            category: document.getElementById('itemCategory').value,
-            quantity: document.getElementById('donationQuantity').value,
-            location: document.getElementById('donationLocation').value,
-            description: document.getElementById('donationDescription').value
+            category: document.getElementById('category').value,
+            quantity: document.getElementById('quantity').value,
+            expiryDate: document.getElementById('expiryDate').value || null,
+            location: document.getElementById('location').value,
+            status: 'Available',
+            timestamp: new Date().toISOString(),
+            priority: document.getElementById('itemType').value === 'Food' ? 'High' : 'Medium'
         };
 
-        try {
-            await this.apiCall('POST', '/items', formData);
-            document.getElementById('donationForm').reset();
-            this.showToast('Donation registered successfully!', 'success');
-            this.loadDashboard();
-            this.loadMyDonations();
-        } catch (error) {
-            this.showToast('Failed to register donation: ' + error.message, 'error');
-        }
-    }
-
-    async loadMyDonations() {
-        if (!this.currentUser) {
-            document.getElementById('myDonations').innerHTML = '<p class="empty-state">Please login to view your donations</p>';
+        // Check auth
+        if (!localStorage.getItem('token')) {
+            document.getElementById('authModal').classList.add('active');
+            document.getElementById('authModalTitle').textContent = 'Please Login to Donate';
             return;
         }
 
-        try {
-            const items = await this.apiCall('GET', '/items');
-            this.renderMyItems(items);
-        } catch (error) {
-            document.getElementById('myDonations').innerHTML = '<p class="empty-state">Failed to load donations</p>';
-        }
-    }
-
-    renderMyItems(items) {
-        const container = document.getElementById('myDonations');
-        if (items.length === 0) {
-            container.innerHTML = '<p class="empty-state">No donations yet</p>';
+        if (localStorage.getItem('role') !== 'DONOR') {
+            alert('Access denied. Only Donors can register donations.');
             return;
         }
 
-        container.innerHTML = `
-            <div class="item-list">
-                ${items.map(item => `
-                    <div class="item">
-                        <div class="item-header">
-                            <span class="item-title">${item.itemType} - ${item.category}</span>
-                            <span class="item-badge ${item.status?.toLowerCase()}">${item.status || 'PENDING'}</span>
-                        </div>
-                        <div class="item-body">
-                            <div class="item-field">
-                                <span class="item-field-label">Quantity</span>
-                                <span class="item-field-value">${item.quantity}</span>
-                            </div>
-                            <div class="item-field">
-                                <span class="item-field-label">Location</span>
-                                <span class="item-field-value">${item.location || 'N/A'}</span>
-                            </div>
-                            <div class="item-field">
-                                <span class="item-field-label">Created</span>
-                                <span class="item-field-value">${new Date(item.createdAt).toLocaleDateString()}</span>
-                            </div>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        `;
+        // Send to SQL backend
+        this.authFetch('/api/items', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(donation)
+        })
+        .then(response => {
+            if (response.status === 401 || response.status === 403) {
+                throw new Error('AUTH_ERROR');
+            }
+            if (response.status === 409) return response.text().then(t => { throw new Error(t); });
+            if (!response.ok) return response.text().then(t => { throw new Error(t || 'SERVER_ERROR'); });
+            return response.json();
+        })
+        .then(data => {
+            // Feature 22: Image Upload
+            const imageFile = document.getElementById('itemImage').files[0];
+            if (imageFile) {
+                const formData = new FormData();
+                formData.append('file', imageFile);
+
+                return this.authFetch(`/api/items/${data.id}/upload-image`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(resp => {
+                    if (!resp.ok) throw new Error('Image upload failed');
+                    return resp.json();
+                })
+                .catch(err => {
+                    console.error(err);
+                    return data; // Proceed with the saved item even if image fails
+                });
+            }
+            return data;
+        })
+        .then(finalData => {
+            // Reload all donations from backend to get updated quantities after matching
+            this.fetchDonationsFromBackend();
+
+            // Update statistics
+            this.statistics.totalDonations++;
+            this.updateStatistics();
+
+            // Reset form
+            e.target.reset();
+            this.updateCategoryOptions();
+
+            // Show success modal
+            this.showModal('Donation Registered!', 'Your surplus item has been registered successfully. Matching is in progress.');
+        })
+        .catch(error => {
+            console.error('Error saving donation:', error);
+            if (error.message === 'AUTH_ERROR') {
+                this.showModal('Authorization Needed', 'Your session has expired or you do not have permission. Please login as a Donor.', 'error');
+                this.logout();
+                document.getElementById('authModal').classList.add('active');
+            } else {
+                this.showModal('Registration Failed', 'Failed to register donation. Please ensure the backend is running and you are logged in correctly.', 'error');
+            }
+        });
     }
 
-    // ========================================
-    // Requests
-    // ========================================
-
-    async handleRequest(e) {
-        e.preventDefault();
-
-        const formData = {
-            organizationName: document.getElementById('ngoName').value,
+    // Handle request form submission
+    handleRequestSubmit(e) {
+        const request = {
+            ngoName: document.getElementById('ngoName').value,
             contactPerson: document.getElementById('contactPerson').value,
-            phone: document.getElementById('contactPhone').value,
-            resourceType: document.getElementById('requestItemType').value,
+            phone: document.getElementById('ngoPhone').value,
+            itemType: document.getElementById('requestItemType').value,   // mapped to resourceType in backend
             category: document.getElementById('requestCategory').value,
-            quantityRequested: document.getElementById('requestQuantity').value,
-            urgencyLevel: document.getElementById('urgencyLevel').value,
-            location: document.getElementById('requestLocation').value
+            quantity: document.getElementById('requestQuantity').value,   // mapped to quantityRequested in backend
+            urgency: document.getElementById('urgency').value,            // mapped to urgencyLevel in backend
+            location: document.getElementById('requestLocation').value,
+            status: 'Pending'
         };
 
-        try {
-            await this.apiCall('POST', '/requests', formData);
-            document.getElementById('requestForm').reset();
-            this.showToast('Request submitted successfully!', 'success');
-            this.loadDashboard();
-            this.loadMyRequests();
-        } catch (error) {
-            this.showToast('Failed to submit request: ' + error.message, 'error');
-        }
-    }
-
-    async loadMyRequests() {
-        if (!this.currentUser) {
-            document.getElementById('myRequests').innerHTML = '<p class="empty-state">Please login to view your requests</p>';
+        // Check auth
+        if (!localStorage.getItem('token')) {
+            document.getElementById('authModal').classList.add('active');
+            document.getElementById('authModalTitle').textContent = 'Please Login to Request';
             return;
         }
 
-        try {
-            const requests = await this.apiCall('GET', '/requests');
-            this.renderMyRequests(requests);
-        } catch (error) {
-            document.getElementById('myRequests').innerHTML = '<p class="empty-state">Failed to load requests</p>';
-        }
-    }
-
-    renderMyRequests(requests) {
-        const container = document.getElementById('myRequests');
-        if (requests.length === 0) {
-            container.innerHTML = '<p class="empty-state">No requests yet</p>';
+        if (localStorage.getItem('role') !== 'NGO' && localStorage.getItem('role') !== 'ADMIN') {
+            this.showModal('Access Denied', 'Only NGOs can submit resource requests.', 'error');
             return;
         }
 
-        container.innerHTML = `
-            <div class="item-list">
-                ${requests.map(req => `
-                    <div class="item">
-                        <div class="item-header">
-                            <span class="item-title">${req.organizationName}</span>
-                            <span class="item-badge ${req.urgencyLevel?.toLowerCase()}">${req.urgencyLevel || 'PENDING'}</span>
+        // Send to backend
+        this.authFetch('/api/requests', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(request)
+        })
+        .then(res => {
+            if (res.status === 409) return res.text().then(t => { throw new Error(t); });
+            if (!res.ok) return res.text().then(t => { throw new Error(t || 'Failed to submit request'); });
+            return res.json();
+        })
+        .then(finalData => {
+            // Reload from backend to get updated matching status
+            this.fetchDonationsFromBackend();
+            this.fetchRequestsFromBackend();
+            e.target.reset();
+            this.updateCategoryOptions();
+            this.showModal('Request Submitted!', 'Your request has been submitted. Matching is in progress.');
+        })
+        .catch(err => {
+            console.error(err);
+            this.showModal('Request Failed', err.message || 'Failed to submit request.', 'error');
+        });
+    }
+
+    // Matching algorithm - matches donations with requests
+    findMatches() {
+        const availableDonations = Array.from(this.donations.values())
+            .filter(d => d.status === 'Available');
+
+        const pendingRequests = Array.from(this.requests.values())
+            .filter(r => r.status === 'Pending');
+
+        // Sort requests by urgency (High priority first)
+        pendingRequests.sort((a, b) => {
+            const urgencyOrder = { 'High': 3, 'Medium': 2, 'Low': 1 };
+            return urgencyOrder[b.urgency] - urgencyOrder[a.urgency];
+        });
+
+        for (const request of pendingRequests) {
+            for (const donation of availableDonations) {
+                if (this.isMatch(donation, request)) {
+                    // Create match
+                    const match = {
+                        id: Date.now() + Math.random(),
+                        donationId: donation.id,
+                        requestId: request.id,
+                        matchedAt: new Date().toISOString(),
+                        status: 'Confirmed'
+                    };
+
+                    this.matches.push(match);
+
+                    // Update statuses
+                    donation.status = 'Matched';
+                    request.status = 'Matched';
+
+                    // Update statistics
+                    this.statistics.successfulMatches++;
+                    this.statistics.peopleHelped += 10; // Estimated people helped per match
+
+                    break;
+                }
+            }
+        }
+
+        // Re-render affected components
+        this.renderDonations();
+        this.renderRequests();
+        this.renderAvailableDonations();
+        this.updateStatistics();
+        this.renderRecentMatches();
+    }
+
+    // Check if donation matches request
+    isMatch(donation, request) {
+        return donation.itemType === request.itemType &&
+               donation.category === request.category &&
+               donation.location.toLowerCase().includes(request.location.toLowerCase()) &&
+               donation.status === 'Available' &&
+               request.status === 'Pending';
+    }
+
+    // Render donations list
+    renderDonations() {
+        const container = document.getElementById('donationsList');
+        if (!container) return;
+
+        const userDonations = Array.from(this.donations.values())
+            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        if (userDonations.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: var(--text-light); padding: 2rem;">No donations yet. Register your first donation!</p>';
+            return;
+        }
+
+        container.innerHTML = userDonations.map(donation => `
+            <div class="item-card slide-in">
+                <div class="item-header">
+                    <div class="item-title">${donation.category}</div>
+                    <div class="item-status status-${donation.status.toLowerCase().replace(/\s+/g, '-')}">${donation.status}</div>
+                </div>
+                <div class="item-details-flex" style="display: flex; gap: 15px; margin-top: 10px;">
+                    ${donation.imageUrl ? `<img src="${donation.imageUrl}" alt="Item image" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px;">` : ''}
+                    <div class="item-details" style="flex-grow: 1;">
+                        <div><strong>Type:</strong> ${donation.itemType}</div>
+                        <div><strong>Total Qty:</strong> ${donation.originalQuantityNum || donation.quantity}</div>
+                        <div><strong>Allocated:</strong> ${(donation.originalQuantityNum || 0) - (donation.remainingQuantityNum !== undefined ? donation.remainingQuantityNum : (donation.originalQuantityNum || 0))}</div>
+                        <div><strong>Remaining:</strong> ${donation.remainingQuantityNum !== undefined ? donation.remainingQuantityNum : donation.quantity}</div>
+                        <div><strong>Location:</strong> ${donation.location}</div>
+                        ${donation.expiryDate ? `<div><strong>Expires:</strong> ${new Date(donation.expiryDate).toLocaleDateString()}</div>` : ''}
+                        <div><strong>Donated:</strong> ${new Date(donation.timestamp).toLocaleDateString()}</div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // Render requests list
+    renderRequests() {
+        const container = document.getElementById('requestsList');
+        if (!container) return;
+
+        const userRequests = Array.from(this.requests.values())
+            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        if (userRequests.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: var(--text-light); padding: 2rem;">No requests yet. Submit your first request!</p>';
+            return;
+        }
+
+        container.innerHTML = userRequests.map(request => {
+            const urgency = request.urgencyLevel || request.urgency || 'NORMAL';
+            const urgencyDisplay = urgency.charAt(0) + urgency.slice(1).toLowerCase();
+            const qty = request.quantityRequested || request.quantity || 0;
+            const remaining = request.remainingNeed !== undefined ? request.remainingNeed : qty;
+            const fulfilled = qty - remaining;
+            const itemType = request.resourceType || request.itemType || 'N/A';
+            const category = request.category || 'N/A';
+            return `
+            <div class="item-card slide-in">
+                <div class="item-header">
+                    <div class="item-title">${itemType} — ${category}</div>
+                    <div class="item-status status-${(request.status || 'pending').toLowerCase().replace(/\s+/g, '-')}">${request.status || 'Pending'}</div>
+                </div>
+                <div class="item-details">
+                    <div><strong>NGO:</strong> ${request.ngoName || 'N/A'}</div>
+                    <div><strong>Requested:</strong> ${qty}</div>
+                    <div><strong>Fulfilled:</strong> ${fulfilled}</div>
+                    <div><strong>Remaining Need:</strong> ${remaining}</div>
+                    <div><strong>Urgency:</strong> <span class="item-status status-${urgency.toLowerCase()}">${urgencyDisplay}</span></div>
+                    <div><strong>Location:</strong> ${request.location || 'N/A'}</div>
+                </div>
+            </div>
+        `}).join('');
+    }
+
+    // Render available donations for receivers
+    renderAvailableDonations() {
+        const container = document.getElementById('availableDonations');
+        if (!container) return;
+
+        const availableDonations = Array.from(this.donations.values())
+            .filter(d => d.status === 'Available')
+            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        if (availableDonations.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: var(--text-light); padding: 2rem;">No available donations at the moment.</p>';
+            return;
+        }
+
+        container.innerHTML = availableDonations.map(donation => `
+            <div class="item-card slide-in">
+                <div class="item-header">
+                    <div class="item-title">${donation.category}</div>
+                    <div class="item-status status-${donation.status.toLowerCase().replace(/\s+/g, '-')}">${donation.status}</div>
+                </div>
+                <div class="item-details-flex" style="display: flex; gap: 15px; margin-top: 10px;">
+                    ${donation.imageUrl ? `<img src="${donation.imageUrl}" alt="Item image" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px;">` : ''}
+                    <div class="item-details" style="flex-grow: 1;">
+                        <div><strong>Donor:</strong> ${donation.donorName}</div>
+                        <div><strong>Type:</strong> ${donation.itemType}</div>
+                        <div><strong>Total Qty:</strong> ${donation.originalQuantityNum || donation.quantity}</div>
+                        <div><strong>Available Qty:</strong> ${donation.remainingQuantityNum !== undefined ? donation.remainingQuantityNum : donation.quantity}</div>
+                        <div><strong>Location:</strong> ${donation.location}</div>
+                        <div><strong>Contact:</strong> ${donation.donorPhone}</div>
+                        ${donation.expiryDate ? `<div><strong>Expires:</strong> ${new Date(donation.expiryDate).toLocaleDateString()}</div>` : ''}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // Update statistics display
+    updateStatistics() {
+        // Fetch real analytics from backend
+        fetch('/api/admin/analytics')
+            .then(res => res.ok ? res.json() : this.getDefaultStats())
+            .then(data => {
+                // Calculate derived metrics
+                const totalDonations = data.totalDonations || 0;
+                const successfulMatches = data.successfulMatches || 0;
+                const activeNGOs = data.activeNGOs || (this.donations.size > 0 ? 1 : 0);
+                
+                // Calculate waste reduced from donations
+                let wastageReduced = 0;
+                if (data.categoryDistribution) {
+                    Object.entries(data.categoryDistribution).forEach(([type, count]) => {
+                        if (type === 'Food') wastageReduced += count * 0.5;
+                        else if (type === 'Clothes') wastageReduced += count * 0.2;
+                        else wastageReduced += count * 0.3;
+                    });
+                }
+
+                // Calculate people helped from donations
+                let peopleHelped = 0;
+                if (data.categoryDistribution) {
+                    Object.entries(data.categoryDistribution).forEach(([type, count]) => {
+                        if (type === 'Food') peopleHelped += count / 2;
+                        else if (type === 'Clothes') peopleHelped += count;
+                        else peopleHelped += count / 3;
+                    });
+                }
+
+                const elements = {
+                    'totalDonations': totalDonations,
+                    'successfulMatches': successfulMatches,
+                    'activeNGOs': activeNGOs,
+                    'wastageReduced': wastageReduced.toFixed(2) + ' T',
+                    'peopleHelped': Math.round(peopleHelped).toLocaleString()
+                };
+
+                Object.entries(elements).forEach(([id, value]) => {
+                    const element = document.getElementById(id);
+                    if (element) {
+                        element.textContent = value;
+                    }
+                });
+
+                // Update category distribution chart
+                this.updateCategoryDistribution(data.categoryDistribution || {});
+            })
+            .catch(err => {
+                console.error('Failed to fetch analytics:', err);
+                this.updateCategoryDistribution({});
+            });
+    }
+
+    getDefaultStats() {
+        return {
+            totalDonations: 0,
+            successfulMatches: 0,
+            activeNGOs: 0,
+            categoryDistribution: {}
+        };
+    }
+
+    updateCategoryDistribution(categoryDist) {
+        // Update the category distribution percentages
+        const foodCount = categoryDist['Food'] || 0;
+        const clothesCount = categoryDist['Clothes'] || 0;
+        const essentialsCount = categoryDist['Essentials'] || 0;
+        const total = foodCount + clothesCount + essentialsCount || 1;
+
+        const foodPercent = Math.round((foodCount / total) * 100);
+        const clothesPercent = Math.round((clothesCount / total) * 100);
+        const essentialsPercent = Math.round((essentialsCount / total) * 100);
+
+        // Update Food
+        let elem = document.querySelector('[data-category="Food"] .percentage');
+        if (elem) elem.textContent = foodPercent + '%';
+        elem = document.querySelector('[data-category="Food"] .progress-bar');
+        if (elem) elem.style.width = foodPercent + '%';
+
+        // Update Clothes
+        elem = document.querySelector('[data-category="Clothes"] .percentage');
+        if (elem) elem.textContent = clothesPercent + '%';
+        elem = document.querySelector('[data-category="Clothes"] .progress-bar');
+        if (elem) elem.style.width = clothesPercent + '%';
+
+        // Update Essentials
+        elem = document.querySelector('[data-category="Essentials"] .percentage');
+        if (elem) elem.textContent = essentialsPercent + '%';
+        elem = document.querySelector('[data-category="Essentials"] .progress-bar');
+        if (elem) elem.style.width = essentialsPercent + '%';
+    }
+
+    // Render recent matches
+    renderRecentMatches() {
+        const container = document.getElementById('recentMatches');
+        if (!container) return;
+
+        const recentMatches = this.matches
+            .sort((a, b) => new Date(b.matchedAt) - new Date(a.matchedAt))
+            .slice(0, 5);
+
+        if (recentMatches.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: var(--text-light); padding: 2rem;">No matches yet.</p>';
+            return;
+        }
+
+        container.innerHTML = recentMatches.map(match => {
+            const donation = this.donations.get(match.donationId);
+            const request = this.requests.get(match.requestId);
+
+            if (!donation || !request) return '';
+
+            return `
+                <div class="match-card slide-in">
+                    <div class="match-header">${donation.category} → ${request.ngoName}</div>
+                    <div class="match-details">
+                        <div>Quantity: ${donation.quantity}</div>
+                        <div>Location: ${donation.location}</div>
+                        <div>Matched: ${new Date(match.matchedAt).toLocaleDateString()}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Highlight stars based on rating (hover or selected)
+    highlightStars(rating) {
+        const stars = document.querySelectorAll('.star-rating i');
+        stars.forEach(star => {
+            const starRating = parseInt(star.dataset.rating);
+            if (starRating <= rating) {
+                star.classList.add('active');
+                star.classList.remove('hovered');
+            } else {
+                star.classList.remove('active');
+                star.classList.remove('hovered');
+            }
+        });
+    }
+
+    // Submit a new review to the backend
+    handleReviewSubmit(e) {
+        const review = {
+            allocationId: document.getElementById('reviewAllocationId').value,
+            donationId: document.getElementById('reviewDonationId').value,
+            reviewerName: document.getElementById('reviewerName').value,
+            reviewerType: document.getElementById('reviewerType').value,
+            targetId: document.getElementById('reviewTargetId').value,
+            targetType: document.getElementById('reviewTargetType').value,
+            rating: parseInt(document.getElementById('reviewRating').value) || 0,
+            comment: document.getElementById('reviewComment').value
+        };
+
+        if (!review.reviewerName || review.rating === 0) {
+            alert('Please enter your name and select a rating.');
+            return;
+        }
+
+        if (!review.targetId) {
+            alert('Target ID is missing. Please try again.');
+            return;
+        }
+
+        this.authFetch('/api/reviews', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(review)
+        })
+        .then(resp => {
+            if (!resp.ok) throw new Error('Network error or Duplicate review detected');
+            return resp.json();
+        })
+        .then(data => {
+            const imageFile = document.getElementById('reviewImage').files[0];
+            if (imageFile) {
+                const formData = new FormData();
+                formData.append('file', imageFile);
+
+                return this.authFetch(`/api/reviews/${data.id}/upload-image`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(imgResp => {
+                    if (!imgResp.ok) throw new Error('Image upload failed');
+                    return imgResp.json();
+                })
+                .catch(err => {
+                    console.error(err);
+                    return data; // Proceed without image if it fails
+                });
+            }
+            return data;
+        })
+        .then(finalData => {
+            // Reset form & rating UI
+            e.target.reset();
+            this.currentRating = 0;
+            this.highlightStars(0);
+            document.getElementById('reviewRating').value = '';
+            document.getElementById('reviewModal').classList.remove('active');
+            this.showModal('Review Submitted!', 'Your review has been recorded successfully.');
+            // Only refresh lookup if a target is already searched
+            const lookupId = document.getElementById('lookupTargetId').value;
+            if (lookupId) this.lookupReviews();
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Failed to submit review. It may be a duplicate.');
+        });
+    }
+
+    // Lookup and display reviews for a target
+    lookupReviews() {
+        const targetId = document.getElementById('lookupTargetId').value;
+        const targetType = document.getElementById('lookupTargetType').value;
+        if (!targetId || !targetType) {
+            alert('Please provide both Target ID and Type.');
+            return;
+        }
+        // Correct endpoint: /api/reviews/target/{targetId}?targetType=NGO
+        fetch(`/api/reviews/target/${targetId}?targetType=${encodeURIComponent(targetType)}`)
+            .then(resp => {
+                if (!resp.ok) throw new Error('Network error');
+                return resp.json();
+            })
+            .then(data => {
+                this.renderReviews(data);
+                this.updateReviewStats(data);
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Failed to fetch reviews.');
+            });
+    }
+
+    // Render reviews list
+    renderReviews(reviews) {
+        const container = document.getElementById('reviewsList');
+        if (!container) return;
+        if (!reviews || reviews.length === 0) {
+            container.innerHTML = '<p style="text-align:center;color:var(--text-light);padding:2rem;">No reviews found.</p>';
+            return;
+        }
+        container.innerHTML = reviews.map(r => `
+            <div class="review-card">
+                <div class="review-header">
+                    <span class="review-author">${r.reviewerName} (${r.reviewerType})</span>
+                    <span class="review-stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span>
+                </div>
+                ${r.imageUrl ? `<div style="margin: 10px 0;"><img src="${r.imageUrl}" alt="Review proof" style="max-width: 100%; max-height: 200px; border-radius: 8px;"></div>` : ''}
+                <div class="review-comment">${r.comment || ''}</div>
+                <div class="review-date">${new Date(r.createdAt).toLocaleDateString()}</div>
+            </div>
+        `).join('');
+    }
+
+    // Update average rating and total count
+    updateReviewStats(reviews) {
+        const statsCard = document.getElementById('reviewStats');
+        if (!statsCard) return;
+        if (!reviews || reviews.length === 0) {
+            statsCard.style.display = 'none';
+            return;
+        }
+        const total = reviews.length;
+        const avg = (reviews.reduce((sum, r) => sum + r.rating, 0) / total).toFixed(1);
+        statsCard.innerHTML = `
+            <div class="avg-rating">${avg}</div>
+            <div class="avg-stars">${'★'.repeat(Math.round(avg))}</div>
+            <div class="total-reviews">${total} review(s)</div>
+        `;
+        statsCard.style.display = 'block';
+    }
+
+    // --- NEW METHODS FOR AUTH, NOTIFICATIONS, ADMIN ---
+
+    authFetch(url, options = {}) {
+        const token = localStorage.getItem('token');
+        if (token) {
+            if(!options.headers) options.headers = {};
+            options.headers['Authorization'] = 'Bearer ' + token;
+        }
+        return fetch(url, options).then(response => {
+            if (response.status === 401 || response.status === 403) {
+                // Token invalid or unauthorized
+                const role = localStorage.getItem('role');
+                if (response.status === 401) {
+                    localStorage.clear();
+                    // We don't reload here to avoid interrupting the user, 
+                    // but they will be prompted on next auth action
+                }
+            }
+            return response;
+        });
+    }
+
+    handleLogin() {
+        const username = document.getElementById('loginUsername').value;
+        const password = document.getElementById('loginPassword').value;
+
+        fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        })
+        .then(res => {
+            if (!res.ok) throw new Error('Login failed');
+            return res.json();
+        })
+        .then(data => {
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('role', data.role);
+            localStorage.setItem('userId', data.userId);
+            localStorage.setItem('username', data.username);
+            
+            document.getElementById('authModal').classList.remove('active');
+            this.updateUIForAuth();
+            this.showModal('Success', 'Logged in successfully!');
+        })
+        .catch(err => this.showModal('Login Failed', 'Invalid username or password. Please try again.', 'error'));
+    }
+
+    handleRegister() {
+        const user = {
+            username: document.getElementById('regUsername').value,
+            email: document.getElementById('regEmail').value,
+            password: document.getElementById('regPassword').value,
+            role: document.getElementById('regRole').value
+        };
+
+        fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(user)
+        })
+        .then(async res => {
+            const text = await res.text();
+            if (!res.ok) {
+                console.error('Server error response:', text);
+                throw new Error(text || 'Registration failed');
+            }
+            // Close auth modal first, then show success message
+            document.getElementById('authModal').classList.remove('active');
+            // Switch auth modal to login tab for next time user opens it
+            const loginTab = document.querySelector('.auth-tab[data-tab="login"]');
+            if (loginTab) {
+                document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+                loginTab.classList.add('active');
+                document.querySelectorAll('.auth-form').forEach(f => f.style.display = 'none');
+                document.getElementById('loginForm').style.display = 'block';
+            }
+            this.showModal('Registration Successful!', 'Your account has been created. Please login to continue.');
+        })
+        .catch(err => {
+            console.error('Registration error:', err);
+            this.showModal('Registration Failed', 
+                err.message === 'Registration failed' ? 'Registration failed. Try a different username/email.' : err.message, 
+                'error'
+            );
+        });
+    }
+
+    logout() {
+        localStorage.clear();
+        this.updateUIForAuth();
+        this.showSection('home');
+    }
+
+    updateUIForAuth() {
+        const token = localStorage.getItem('token');
+        const role = localStorage.getItem('role');
+        const authBtn = document.getElementById('authBtn');
+        const notifBtn = document.getElementById('notificationBtn');
+        const adminBtns = document.querySelectorAll('.admin-only');
+        const donorBtns = document.querySelectorAll('.donor-only');
+        const ngoBtns = document.querySelectorAll('.ngo-only');
+
+        if (token) {
+            authBtn.textContent = 'Logout';
+            notifBtn.style.display = 'inline-block';
+            this.fetchNotifications();
+            
+            // Role based navigation
+            if (role === 'ADMIN') {
+                adminBtns.forEach(btn => btn.style.display = 'inline-block');
+                donorBtns.forEach(btn => btn.style.display = 'inline-block');
+                ngoBtns.forEach(btn => btn.style.display = 'inline-block');
+            } else if (role === 'DONOR') {
+                adminBtns.forEach(btn => btn.style.display = 'none');
+                donorBtns.forEach(btn => btn.style.display = 'inline-block');
+                ngoBtns.forEach(btn => btn.style.display = 'none');
+            } else if (role === 'NGO') {
+                adminBtns.forEach(btn => btn.style.display = 'none');
+                donorBtns.forEach(btn => btn.style.display = 'none');
+                ngoBtns.forEach(btn => btn.style.display = 'inline-block');
+            }
+        } else {
+            authBtn.textContent = 'Login';
+            notifBtn.style.display = 'none';
+            adminBtns.forEach(btn => btn.style.display = 'none');
+            donorBtns.forEach(btn => btn.style.display = 'none');
+            ngoBtns.forEach(btn => btn.style.display = 'none');
+        }
+    }
+
+    fetchNotifications() {
+        const userId = localStorage.getItem('userId');
+        if (!userId) return;
+
+        this.authFetch(`/api/notifications/${userId}`)
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('notificationCount').textContent = data.length;
+                const list = document.getElementById('notificationsList');
+                if (data.length === 0) {
+                    list.innerHTML = '<p>No new notifications</p>';
+                } else {
+                    list.innerHTML = data.map(n => `
+                        <div style="padding: 10px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between;">
+                            <div>
+                                <strong>${n.type}</strong><br>
+                                ${n.message}<br>
+                                <small>${new Date(n.timestamp).toLocaleString()}</small>
+                            </div>
+                            <button onclick="surplusConnect.markNotifRead(${n.id})" style="background:var(--primary-color);color:white;border:none;border-radius:4px;cursor:pointer;">Mark Read</button>
                         </div>
-                        <div class="item-body">
-                            <div class="item-field">
-                                <span class="item-field-label">Type</span>
-                                <span class="item-field-value">${req.resourceType}</span>
-                            </div>
-                            <div class="item-field">
-                                <span class="item-field-label">Quantity</span>
-                                <span class="item-field-value">${req.quantityRequested}</span>
-                            </div>
-                            <div class="item-field">
-                                <span class="item-field-label">Location</span>
-                                <span class="item-field-value">${req.location || 'N/A'}</span>
-                            </div>
+                    `).join('');
+                }
+            })
+            .catch(console.error);
+    }
+
+    markNotifRead(id) {
+        this.authFetch(`/api/notifications/${id}/read`, { method: 'POST' })
+            .then(() => {
+                this.fetchNotifications();
+            });
+    }
+
+    loadAdminDashboard() {
+        this.authFetch('/api/admin/analytics')
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('adminTotalDonations').textContent = data.totalDonations;
+                document.getElementById('adminTotalRequests').textContent = data.totalRequests;
+                document.getElementById('adminSuccessfulMatches').textContent = data.successfulMatches;
+            });
+
+        this.authFetch('/api/admin/leaderboard')
+            .then(res => res.json())
+            .then(data => {
+                const board = document.getElementById('ngoLeaderboard');
+                if (data.length === 0) {
+                    board.innerHTML = '<p>No active NGOs yet.</p>';
+                    return;
+                }
+                board.innerHTML = data.map((ngo, index) => `
+                    <div class="item-card slide-in">
+                        <div class="item-header">
+                            <div><strong>#${index + 1}</strong> ${ngo.name}</div>
+                            <div class="item-status status-matched">Rating: ${ngo.rating} ★</div>
+                        </div>
+                        <div class="item-details">
+                            <div>Category: ${ngo.ngoCategory || 'N/A'}</div>
+                            <div>Total Received: ${ngo.totalReceived}</div>
                         </div>
                     </div>
-                `).join('')}
-            </div>
+                `).join('');
+            });
+    }
+
+    runMatchingNow() {
+        // Fetch all available items and trigger matching for each
+        fetch('/api/items')
+            .then(r => r.json())
+            .then(items => {
+                const available = items.filter(i =>
+                    i.status === 'Available' || i.status === 'PartiallyAllocated');
+                if (available.length === 0) {
+                    this.showModal('No Items', 'No available donations to match.', 'error');
+                    return;
+                }
+                const promises = available.map(item =>
+                    this.authFetch('/api/matching/split/' + item.id, {method: 'POST'})
+                        .then(r => r.json())
+                        .catch(() => [])
+                );
+                Promise.all(promises).then(results => {
+                    const total = results.reduce((sum, r) => sum + (Array.isArray(r) ? r.length : 0), 0);
+                    this.fetchDonationsFromBackend();
+                    this.fetchRequestsFromBackend();
+                    this.showModal('Matching Complete', total + ' allocation(s) created successfully.');
+                });
+            });
+    }
+
+    loadImpactStats() {
+        // Load real stats from backend
+        this.authFetch('/api/admin/analytics')
+            .then(r => r.json())
+            .then(data => {
+                const td = document.getElementById('totalDonations');
+                const sm = document.getElementById('successfulMatches');
+                if (td) td.textContent = data.totalDonations || 0;
+                if (sm) sm.textContent = data.successfulMatches || 0;
+            }).catch(() => {});
+
+        // Load NGO impact data
+        fetch('/api/ngos')
+            .then(r => r.json())
+            .then(ngos => {
+                let totalPeople = 0, totalWaste = 0;
+                ngos.forEach(n => {
+                    totalPeople += n.peopleHelped || 0;
+                    totalWaste += n.wasteReducedKg || 0;
+                });
+                const ph = document.getElementById('peopleHelped');
+                const wr = document.getElementById('wastageReduced');
+                if (ph) ph.textContent = totalPeople.toLocaleString();
+                if (wr) wr.textContent = (totalWaste / 1000).toFixed(1) + 'T';
+
+                // Active NGOs count
+                const an = document.getElementById('activeNGOs');
+                if (an) an.textContent = ngos.filter(n => (n.totalReceived || 0) > 0).length;
+            }).catch(() => {});
+
+        // Category distribution
+        fetch('/api/items')
+            .then(r => r.json())
+            .then(items => {
+                const counts = {Food: 0, Clothes: 0, Essentials: 0};
+                items.forEach(i => { if (counts[i.itemType] !== undefined) counts[i.itemType]++; });
+                const total = items.length || 1;
+                Object.keys(counts).forEach(type => {
+                    const pct = Math.round((counts[type] / total) * 100);
+                    const bar = document.querySelector('[data-category="' + type + '"]');
+                    if (bar) {
+                        bar.style.width = pct + '%';
+                        bar.closest('.category-item').querySelector('.category-value').textContent = pct + '%';
+                    }
+                });
+            }).catch(() => {});
+    }
+
+    loadCompletedAllocations() {
+        const container = document.getElementById('completedAllocations');
+        if (!container) return;
+
+        const role = localStorage.getItem('role');
+        const userId = localStorage.getItem('userId');
+
+        if (!userId) {
+            container.innerHTML = '<p style="text-align:center;color:var(--text-light);padding:2rem;">Please login to see your transactions.</p>';
+            return;
+        }
+
+        // Fetch all allocations
+        // Load allocations from backend via items
+        fetch('/api/items')
+            .then(r => r.json())
+            .then(items => {
+                const myItems = role === 'DONOR'
+                    ? items.filter(i => String(i.donorId) === String(userId) &&
+                        (i.status === 'PartiallyAllocated' || i.status === 'FullyAllocated' || i.status === 'Matched'))
+                    : items.filter(i => i.status === 'PartiallyAllocated' || i.status === 'FullyAllocated' || i.status === 'Matched');
+
+                if (myItems.length === 0) {
+                    container.innerHTML = '<p style="text-align:center;color:var(--text-light);padding:2rem;">No completed transactions yet.</p>';
+                    return;
+                }
+
+                container.innerHTML = myItems.map(item => {
+                    const allocated = (item.originalQuantityNum || 0) - (item.remainingQuantityNum || 0);
+                    return '<div class="item-card">' +
+                        '<div class="item-header">' +
+                        '<div class="item-title">' + item.itemType + ' - ' + item.category + '</div>' +
+                        '<div class="item-status status-matched">' + item.status + '</div>' +
+                        '</div>' +
+                        '<div class="item-details" style="margin-bottom:10px;">' +
+                        '<div><strong>Donor:</strong> ' + (item.donorName || 'N/A') + '</div>' +
+                        '<div><strong>Qty:</strong> ' + item.originalQuantityNum + ' | <strong>Allocated:</strong> ' + allocated + '</div>' +
+                        '<div><strong>Location:</strong> ' + item.location + '</div>' +
+                        '</div>' +
+                        '<button class="btn btn-secondary" style="width:100%;margin-top:8px;" ' +
+                        'onclick="surplusConnect.openReviewModal(' + item.id + ', \'' + item.donorId + '\', \'' + role + '\')">' +
+                        '<i class="fas fa-star"></i> Leave a Review' +
+                        '</button></div>';
+                }).join('');
+            })
+            .catch(function() {
+                container.innerHTML = '<p style="text-align:center;color:var(--text-light);padding:2rem;">Could not load transactions.</p>';
+            });
+    }
+
+    openReviewModal(itemId, donorId, role) {
+        const userId = localStorage.getItem('userId');
+
+        // Set hidden fields
+        document.getElementById('reviewDonationId').value = itemId;
+        document.getElementById('reviewAllocationId').value = itemId;
+        document.getElementById('reviewerType').value = role;
+
+        // If donor → reviewing NGO (targetId = ngoId from allocation)
+        // If NGO → reviewing Donor
+        if (role === 'DONOR') {
+            document.getElementById('reviewTargetId').value = userId; // will be overridden below
+            document.getElementById('reviewTargetType').value = 'NGO';
+            // Try to get the NGO id from allocations
+            fetch(`/api/matching/queues`)
+                .catch(() => {});
+            // Use itemId as targetId proxy for NGO lookup
+            document.getElementById('reviewTargetId').value = itemId;
+        } else {
+            document.getElementById('reviewTargetId').value = donorId || userId;
+            document.getElementById('reviewTargetType').value = 'DONOR';
+        }
+
+        // Pre-fill reviewer name
+        const username = localStorage.getItem('username') || '';
+        document.getElementById('reviewerName').value = username;
+
+        // Show transaction info
+        document.getElementById('reviewTransactionInfo').innerHTML = `
+            <div><strong>Item ID:</strong> ${itemId}</div>
+            <div><strong>You are reviewing:</strong> ${role === 'DONOR' ? 'the NGO' : 'the Donor'}</div>
         `;
+
+        // Reset stars
+        this.currentRating = 0;
+        this.highlightStars(0);
+        document.getElementById('reviewRating').value = '0';
+        document.getElementById('reviewComment').value = '';
+
+        document.getElementById('reviewModal').classList.add('active');
     }
 
-    // ========================================
-    // Matches
-    // ========================================
-
-    async loadMatches() {
-        try {
-            const items = await this.apiCall('GET', '/items');
-            const allocatedItems = items.filter(i => i.status === 'ALLOCATED');
-            this.renderMatches(allocatedItems);
-        } catch (error) {
-            document.getElementById('matchesList').innerHTML = '<p class="empty-state">Failed to load matches</p>';
-        }
-    }
-
-    renderMatches(matches) {
-        const container = document.getElementById('matchesList');
-        if (matches.length === 0) {
-            container.innerHTML = '<p class="empty-state">No matches found yet</p>';
-            return;
-        }
-
-        container.innerHTML = `
-            <div class="item-list">
-                ${matches.map(match => `
-                    <div class="item">
-                        <div class="item-header">
-                            <span class="item-title">${match.itemType} Match</span>
-                            <span class="item-badge" style="background: rgba(16, 185, 129, 0.1); color: var(--success);">MATCHED</span>
-                        </div>
-                        <div class="item-body">
-                            <div class="item-field">
-                                <span class="item-field-label">Category</span>
-                                <span class="item-field-value">${match.category}</span>
-                            </div>
-                            <div class="item-field">
-                                <span class="item-field-label">Quantity</span>
-                                <span class="item-field-value">${match.quantity}</span>
-                            </div>
-                            <div class="item-field">
-                                <span class="item-field-label">Location</span>
-                                <span class="item-field-value">${match.location || 'N/A'}</span>
-                            </div>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    }
-
-    // ========================================
-    // Admin
-    // ========================================
-
-    async loadAdminDashboard() {
-        if (this.currentUser?.role !== 'ADMIN') {
-            this.showToast('Admin access required', 'error');
-            this.showSection('dashboard');
-            return;
-        }
-
-        try {
-            const [items, requests, ngos] = await Promise.all([
-                this.apiCall('GET', '/items'),
-                this.apiCall('GET', '/requests'),
-                this.apiCall('GET', '/ngos')
-            ]);
-
-            // Update admin stats
-            document.getElementById('admin-donations').textContent = items.length;
-            document.getElementById('admin-requests').textContent = requests.length;
-            document.getElementById('admin-matches').textContent = items.filter(i => i.status === 'ALLOCATED').length;
-            document.getElementById('admin-ngos').textContent = ngos.length;
-
-            // Load leaderboard
-            this.loadLeaderboard(ngos);
-        } catch (error) {
-            console.error('Failed to load admin dashboard:', error);
-        }
-    }
-
-    loadLeaderboard(ngos) {
-        const container = document.getElementById('topNGOs');
-        if (ngos.length === 0) {
-            container.innerHTML = '<p class="empty-state">No NGOs found</p>';
-            return;
-        }
-
-        const sorted = ngos.sort((a, b) => (b.trustScore || 0) - (a.trustScore || 0)).slice(0, 5);
+    showModal(title, message, type = 'success') {
+        const icon = document.getElementById('modalIcon');
+        const titleEl = document.getElementById('modalTitle');
         
-        container.innerHTML = `
-            <div class="item-list">
-                ${sorted.map((ngo, idx) => `
-                    <div class="item">
-                        <div class="item-header">
-                            <span class="item-title">#${idx + 1} ${ngo.name}</span>
-                        </div>
-                        <div class="item-body">
-                            <div class="item-field">
-                                <span class="item-field-label">Trust Score</span>
-                                <span class="item-field-value">${(ngo.trustScore || 0).toFixed(2)}</span>
-                            </div>
-                            <div class="item-field">
-                                <span class="item-field-label">People Helped</span>
-                                <span class="item-field-value">${ngo.peopleHelped || 0}</span>
-                            </div>
-                            <div class="item-field">
-                                <span class="item-field-label">Category</span>
-                                <span class="item-field-value">${ngo.ngoCategory || 'N/A'}</span>
-                            </div>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        `;
+        if (icon) {
+            icon.className = type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-triangle';
+        }
+        
+        document.getElementById('modalTitle').textContent = title;
+        document.getElementById('modalMessage').textContent = message;
+        document.getElementById('successModal').classList.add('active');
     }
 
-    // ========================================
-    // Utility Functions
-    // ========================================
+    // ✨ Show brief notification feedback (non-blocking toast)
+    showNotificationFeedback(message, type = 'success') {
+        const toast = document.createElement('div');
+        toast.style.cssText = `
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            padding: 1rem 1.5rem;
+            background: ${type === 'success' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'};
+            color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            animation: slideInUp 0.3s ease-out;
+            z-index: 2000;
+            font-weight: 600;
+            font-size: 0.875rem;
+        `;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.style.animation = 'slideInUp 0.3s ease-out reverse';
+            setTimeout(() => toast.remove(), 300);
+        }, 2000);
+    }
 
-    updateCategories(typeId, categoryId) {
-        const type = document.getElementById(typeId).value;
-        const categorySelect = document.getElementById(categoryId);
+    hideModal() {
+        document.getElementById('successModal').classList.remove('active');
+    }
 
-        categorySelect.innerHTML = '<option value="">Select category</option>';
+    initCursorEffect() {
+        let lastX = 0;
+        let lastY = 0;
+        const threshold = 15; // Only spawn if moved more than 15px
 
-        if (type && this.categories[type]) {
-            this.categories[type].forEach(cat => {
-                const option = document.createElement('option');
-                option.value = cat;
-                option.textContent = cat;
-                categorySelect.appendChild(option);
+        document.addEventListener('mousemove', (e) => {
+            const dist = Math.hypot(e.clientX - lastX, e.clientY - lastY);
+            if (dist < threshold) return;
+
+            lastX = e.clientX;
+            lastY = e.clientY;
+
+            const bubble = document.createElement('div');
+            bubble.className = 'cursor-bubble';
+            bubble.style.left = e.clientX + 'px';
+            bubble.style.top = e.clientY + 'px';
+            
+            document.body.appendChild(bubble);
+
+            // Remove bubble after animation ends
+            setTimeout(() => {
+                bubble.remove();
+            }, 800);
+        });
+    }
+
+    initTheme() {
+        const theme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', theme);
+        this.updateThemeIcon(theme);
+
+        const themeBtn = document.getElementById('themeToggle');
+        if (themeBtn) {
+            themeBtn.addEventListener('click', () => {
+                const currentTheme = document.documentElement.getAttribute('data-theme');
+                const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                document.documentElement.setAttribute('data-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+                this.updateThemeIcon(newTheme);
+                // Update particle color without full reinit
+                this.updateParticleColor(newTheme);
             });
         }
     }
 
-    showToast(message, type = 'info') {
-        const toast = document.getElementById('toast');
-        toast.textContent = message;
-        toast.className = `toast active ${type}`;
-        
-        setTimeout(() => {
-            toast.classList.remove('active');
-        }, 3000);
+    updateParticleColor(theme) {
+        const color = theme === 'light' ? '#a0aec0' : '#cbd5e1';
+        try {
+            if (window.pJSDom && window.pJSDom.length > 0) {
+                const p = window.pJSDom[0].pJS;
+                p.particles.color.value = color;
+                p.particles.line_linked.color = color;
+                p.fn.particlesRefresh();
+            }
+        } catch (e) {
+            // particles not ready, ignore
+        }
     }
+
+    updateThemeIcon(theme) {
+        const icon = document.querySelector('#themeToggle i');
+        if (icon) {
+            icon.className = theme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
+        }
+    }
+
+    initParticles() {
+        const theme = document.documentElement.getAttribute('data-theme') || 'light';
+        
+        // Enhanced particle colors based on theme
+        let particleColor, lineColor, hoverLineColor;
+        if (theme === 'light') {
+            particleColor = '#64748b';      // Light slate
+            lineColor = '#cbd5e1';          // Light blue-gray
+            hoverLineColor = '#94a3b8';     // Hover lighter
+        } else {
+            particleColor = '#40e0d0';      // Cyan/Teal for dark mode
+            lineColor = 'rgba(64, 224, 208, 0.4)';  // Teal with opacity
+            hoverLineColor = 'rgba(64, 224, 208, 0.8)';
+        }
+        
+        if (typeof particlesJS !== 'undefined') {
+            particlesJS('particles-js', {
+                "particles": {
+                    "number": { 
+                        "value": window.innerWidth < 768 ? 60 : 120,
+                        "density": { "enable": true, "value_area": 800 } 
+                    },
+                    "color": { "value": particleColor },
+                    "shape": { "type": "circle" },
+                    "opacity": { 
+                        "value": theme === 'light' ? 0.3 : 0.5,
+                        "random": false,
+                        "anim": {
+                            "enable": true,
+                            "speed": 0.5,
+                            "opacity_min": 0.2,
+                            "sync": false
+                        }
+                    },
+                    "size": { 
+                        "value": 2.5,
+                        "random": true,
+                        "anim": {
+                            "enable": true,
+                            "speed": 0.3,
+                            "size_min": 0.5,
+                            "sync": false
+                        }
+                    },
+                    "line_linked": { 
+                        "enable": true,
+                        "distance": 180,
+                        "color": lineColor,
+                        "opacity": theme === 'light' ? 0.2 : 0.35,
+                        "width": 1.2
+                    },
+                    "move": { 
+                        "enable": true,
+                        "speed": 2,
+                        "direction": "none",
+                        "random": true,
+                        "straight": false,
+                        "out_mode": "out",
+                        "bounce": false,
+                        "attract": {
+                            "enable": true,
+                            "rotateX": 600,
+                            "rotateY": 1200
+                        }
+                    }
+                },
+                "interactivity": {
+                    "detect_on": "canvas",
+                    "events": { 
+                        "onhover": { "enable": true, "mode": "grab" },
+                        "onclick": { "enable": true, "mode": "push" },
+                        "resize": true
+                    },
+                    "modes": { 
+                        "grab": { 
+                            "distance": 250,
+                            "line_linked": { 
+                                "opacity": hoverLineColor === 'rgba(64, 224, 208, 0.8)' ? 0.8 : 0.6
+                            }
+                        },
+                        "push": { "particles_nb": 6 }
+                    }
+                },
+                "retina_detect": true
+            });
+            
+            // Log successful initialization
+            console.log('✨ Particle background initialized with enhanced styling');
+        } else {
+            console.warn('particlesJS not found, retrying...');
+            setTimeout(() => this.initParticles(), 500);
+        }
+    }
+
 }
 
-// Initialize app when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    window.app = new SurplusConnect();
-});
+// Initialize the application
+const surplusConnect = new SurplusConnect();
